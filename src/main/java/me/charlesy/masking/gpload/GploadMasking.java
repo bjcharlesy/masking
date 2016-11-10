@@ -53,11 +53,6 @@ public class GploadMasking implements Maskable, BeforeMasking {
 
 	public void waitFor() {
 		load();
-		Thread thread = new Thread(new Runnable() {
-			public void run() {
-				
-			}
-		});
 	}
 
 	/**
