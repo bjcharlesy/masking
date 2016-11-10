@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.postgresql.copy.CopyManager;
 import org.postgresql.core.BaseConnection;
@@ -27,6 +29,15 @@ public class PostgreSQLMasking {
 
 	public PostgreSQLMasking(PostgreSQLDatabase psqldb) {
 		this.psqldb = psqldb;
+	}
+
+	public PostgreSQLMasking(PostgreSQLProfile profile) {
+		this.profile = profile;
+	}
+
+	public PostgreSQLMasking(PostgreSQLProfile profile, PostgreSQLDatabase psqldb) {
+		this.psqldb = psqldb;
+		this.profile = profile;
 	}
 
 	public PostgreSQLProfile getGpCopyProfile() {
@@ -50,7 +61,10 @@ public class PostgreSQLMasking {
 			// Nothing will happen.
 		};
 
-		Thread copyOutThread = new Thread(new CopyOutPg(pipedOutputStream));
+		CopyOutPg copyOutPg = new CopyOutPg(pipedOutputStream);
+		copyOutPg.setDelimiter(profile.getDelimiter());
+		copyOutPg.setTableName(profile.getTableName());
+		Thread copyOutThread = new Thread(copyOutPg);		
 		copyOutThread.start();
 
 		Thread maskThread = new Thread(new PostgreSQLMaskThread(pipedInputStream));
@@ -72,7 +86,19 @@ public class PostgreSQLMasking {
 
 	private class CopyOutPg implements Runnable {
 
-		final PipedOutputStream pipedOutputStream;
+		private final PipedOutputStream pipedOutputStream;
+
+		private String tableName;
+
+		private String delimiter;
+
+		public void setTableName(String tableName) {
+			this.tableName = tableName;
+		}
+
+		public void setDelimiter(String delimiter) {
+			this.delimiter = delimiter;
+		}
 
 		public CopyOutPg(PipedOutputStream pipedOutputStream) {
 			this.pipedOutputStream = pipedOutputStream;
@@ -81,9 +107,11 @@ public class PostgreSQLMasking {
 		private String getCopyCommand() {
 			StringBuilder contents = new StringBuilder(500);
 			contents.append( "COPY " );
-			contents.append("(SELECT * FROM ext_user_test) ");
+			contents.append("(SELECT * FROM ");
+			contents.append(tableName);
+			contents.append(") ");
 			contents.append("TO STDOUT WITH DELIMITER '");
-			contents.append("\t");
+			contents.append(delimiter);
 			contents.append("'");
 			return contents.toString();
 		}
@@ -92,6 +120,8 @@ public class PostgreSQLMasking {
 		public void run() {
 			CopyManager copyManager;
 			BaseConnection connection = null;
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			System.out.println(sdf.format(new Date()) + ": begin copy.");
 			try {
 				connection =  (BaseConnection) psqldb.getConnection();
 				copyManager = new CopyManager(connection);
@@ -105,6 +135,7 @@ public class PostgreSQLMasking {
 			} finally {
 				try {
 					pipedOutputStream.close();
+					System.out.println(sdf.format(new Date()) + ": copy out gp.");
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -115,9 +146,12 @@ public class PostgreSQLMasking {
 	}
 
 	public static void main(String[] args) {
+		PostgreSQLProfile profile = new PostgreSQLProfile();
+		profile.setTableName("ext_user_test");
 		PostgreSQLDatabase psqldb = new PostgreSQLDatabase(
 				"vm.mini", "5432", "gptest", "gpadmin", "");
-		new PostgreSQLMasking(psqldb).mask();
+		PostgreSQLMasking psqlMasking = new PostgreSQLMasking(profile, psqldb);
+		psqlMasking.mask();
 	}
 
 }

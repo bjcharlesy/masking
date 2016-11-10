@@ -7,6 +7,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PipedInputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * @author Charles Young
@@ -27,9 +29,9 @@ public class PostgreSQLMaskThread implements Runnable {
 			String line = bufferedReader.readLine();
 			do {
 				System.out.println(line);
-				if (line == null) {
-					Thread.sleep(500);
-				}
+				// 模拟处理时间
+				if (false)
+					Thread.sleep(60 * 1000);
 			} while ((line = bufferedReader.readLine()) != null);
 //			} while (pipedInputStream.available() != 0
 //					|| (line = bufferedReader.readLine()) != null);
@@ -42,6 +44,8 @@ public class PostgreSQLMaskThread implements Runnable {
 		} finally {
 			try {
 				bufferedReader.close();
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+				System.out.println(sdf.format(new Date()) + ": copy into gp.");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

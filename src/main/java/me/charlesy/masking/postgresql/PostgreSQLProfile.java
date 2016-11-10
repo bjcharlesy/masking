@@ -9,14 +9,28 @@ package me.charlesy.masking.postgresql;
  */
 public class PostgreSQLProfile {
 
-	private String fifoFile;
+	private String tableName;
 
-	public void setFifoFile(String fifoFile) {
-		this.fifoFile = fifoFile;
+	private String delimiter;
+
+	public String getDelimiter() {
+		return delimiter;
 	}
 
-	public String getFifoFile() {
-		return fifoFile;
+	public void setDelimiter(String delimiter) {
+		this.delimiter = delimiter;
+	}
+
+	public String getTableName() {
+		return tableName;
+	}
+
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
+	public PostgreSQLProfile() {
+		this.delimiter = "\t";
 	}
 
 }
