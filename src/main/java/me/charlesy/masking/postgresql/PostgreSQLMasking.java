@@ -67,12 +67,20 @@ public class PostgreSQLMasking {
 		Thread copyOutThread = new Thread(copyOutPg);		
 		copyOutThread.start();
 
-		Thread maskThread = new Thread(new PostgreSQLMaskThread(pipedInputStream));
-		maskThread.start();
+		int thread_number = profile.getThreadNumber();
+		PostgreSQLMaskThread psqlMaskThread = new PostgreSQLMaskThread(pipedInputStream);
+		Thread[] maskThreads = new Thread[thread_number];
+		for (int i=0; i<thread_number; i++) {
+			maskThreads[i] = new Thread(psqlMaskThread);
+			maskThreads[i].start();
+		}
 
 		try {
 			copyOutThread.join();
-			maskThread.join();
+			psqlMaskThread.finish();
+			for (Thread t : maskThreads) {
+				t.join();
+			}
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -148,6 +156,7 @@ public class PostgreSQLMasking {
 	public static void main(String[] args) {
 		PostgreSQLProfile profile = new PostgreSQLProfile();
 		profile.setTableName("ext_user_test");
+		profile.setThreadNumber(4);
 		PostgreSQLDatabase psqldb = new PostgreSQLDatabase(
 				"vm.mini", "5432", "gptest", "gpadmin", "");
 		PostgreSQLMasking psqlMasking = new PostgreSQLMasking(profile, psqldb);
