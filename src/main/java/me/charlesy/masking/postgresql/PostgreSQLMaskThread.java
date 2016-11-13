@@ -22,8 +22,6 @@ public class PostgreSQLMaskThread implements Runnable {
 
 	private AtomicBoolean isFinish = new AtomicBoolean(false);
 
-	private AtomicBoolean isClose = new AtomicBoolean(false);
-
 	private BufferedReader bufferedReader;
 
 	private BufferedWriter bufferedWriter;
@@ -38,13 +36,28 @@ public class PostgreSQLMaskThread implements Runnable {
 	}
 
 	public void close() {
-		isClose.set(true);
+		closeReader();
+		closeWriter();
+	}
+
+	public void closeReader() {
+		try {
+			if (bufferedReader.read() != -1)
+				throw new RuntimeException("not read finished.");
+			bufferedReader.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public void closeWriter() {
 		try {
 			bufferedWriter.flush();
 			bufferedWriter.close();
+
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			System.out.println(sdf.format(new Date()) + ": copy into gp.");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -55,13 +68,11 @@ public class PostgreSQLMaskThread implements Runnable {
 	public void run() {
 		try {
 			String line = null;
-			// IMPORTANT: 易错, 除非发现bug, 否则不建议轻易更改这段控制代码。
-			// 1. 当outstream写入完成, 即isFinish为True时。
-			// 2. reader已经读完，readline不为null。isClose检查bufferedReader是否已经关闭。
-			// 满足上面两个条件才能关闭
-			while (!isFinish.get() ||
-					(!isClose.get() && (line = bufferedReader.readLine()) != null)) {
+			// 当输入已经读完(即: bufferReader.readLine = null), 并且写入已经结束(即: isFinish为True)
+			while ((line = bufferedReader.readLine()) != null || !isFinish.get()) {
 				if (line == null) {
+					// 说明输入还没准备好，短暂等待
+					Thread.sleep(2);
 					continue;
 				}
 				// 模拟处理时间
@@ -71,7 +82,6 @@ public class PostgreSQLMaskThread implements Runnable {
 				bufferedWriter.write(line);
 				bufferedWriter.newLine();
 			}
-			bufferedWriter.flush();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -79,15 +89,9 @@ public class PostgreSQLMaskThread implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
-			try {
-				close();
-				bufferedReader.close();
-				SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-				System.out.println(sdf.format(new Date()) + ": copy into gp.");
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			System.out.println(sdf.format(new Date()) + ": "
+					+ Thread.currentThread().getName() + " end.");
 		}
 	}
 

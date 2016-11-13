@@ -10,10 +10,7 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.postgresql.copy.CopyIn;
 import org.postgresql.copy.CopyManager;
-import org.postgresql.copy.PGCopyInputStream;
-import org.postgresql.copy.PGCopyOutputStream;
 import org.postgresql.core.BaseConnection;
 
 /**
@@ -94,7 +91,7 @@ public class PostgreSQLMasking {
 			for (Thread t : maskThreads) {
 				t.join();
 			}
-			psqlMaskThread.closeWriter();
+			psqlMaskThread.close();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
