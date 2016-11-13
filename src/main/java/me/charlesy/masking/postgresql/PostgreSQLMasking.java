@@ -66,7 +66,7 @@ public class PostgreSQLMasking {
 
 		CopyOutPg copyOutPg = new CopyOutPg(pipedOutputStream);
 		copyOutPg.setDelimiter(profile.getDelimiter());
-		copyOutPg.setTableName(profile.getTableName());
+		copyOutPg.setTableName(profile.getLoadTable());
 		Thread copyOutThread = new Thread(copyOutPg);		
 		copyOutThread.start();
 
@@ -80,8 +80,8 @@ public class PostgreSQLMasking {
 		}
 
 		CopyInPg copyInPg = new CopyInPg(pipedInputStream2);
-		copyInPg.setTableName("user_test");
 		copyInPg.setDelimiter(profile.getDelimiter());
+		copyInPg.setTableName(profile.getTargetTable());
 		Thread copyInThread = new Thread(copyInPg);
 		copyInThread.start();
 
@@ -97,60 +97,6 @@ public class PostgreSQLMasking {
 			e.printStackTrace();
 		}
 	}
-
-	private class CopyInPg implements Runnable {
-
-		private final PipedInputStream pipedInputStream;
-
-		private String tableName;
-	
-		private String delimiter;
-	
-		public void setTableName(String tableName) {
-			this.tableName = tableName;
-		}
-	
-		public void setDelimiter(String delimiter) {
-			this.delimiter = delimiter;
-		}
-
-		public CopyInPg(PipedInputStream pipedInputStream) {
-			this.pipedInputStream = pipedInputStream;
-		}
-	
-		private String getCopyCommand() {
-			StringBuilder contents = new StringBuilder(500);
-			contents.append( "COPY " );
-			contents.append(tableName);
-			contents.append(" FROM STDIN WITH DELIMITER '");
-			contents.append(delimiter);
-			contents.append("'");
-			System.out.println(contents);
-			return contents.toString();
-		}
-
-		@Override
-		public void run() {
-			CopyManager copyManager;
-			BaseConnection connection = null;
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-			System.out.println(sdf.format(new Date()) + ": begin copy in.");
-			try {
-				connection =  (BaseConnection) psqldb.getConnection();
-				copyManager = new CopyManager(connection);
-				long count = copyManager.copyIn(getCopyCommand(), pipedInputStream);
-				System.out.println("copy in pg: " + count);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-		}
-	}
-
 	private class CopyOutPg implements Runnable {
 
 		private final PipedOutputStream pipedOutputStream;
@@ -173,7 +119,7 @@ public class PostgreSQLMasking {
 
 		private String getCopyCommand() {
 			StringBuilder contents = new StringBuilder(500);
-			contents.append( "COPY " );
+			contents.append("COPY ");
 			contents.append("(SELECT * FROM ");
 			contents.append(tableName);
 			contents.append(") TO STDOUT WITH DELIMITER '");
@@ -211,10 +157,64 @@ public class PostgreSQLMasking {
 		}
 	}
 
+	private class CopyInPg implements Runnable {
+
+		private final PipedInputStream pipedInputStream;
+
+		private String tableName;
+	
+		private String delimiter;
+	
+		public void setTableName(String tableName) {
+			this.tableName = tableName;
+		}
+
+		public void setDelimiter(String delimiter) {
+			this.delimiter = delimiter;
+		}
+
+		public CopyInPg(PipedInputStream pipedInputStream) {
+			this.pipedInputStream = pipedInputStream;
+		}
+	
+		private String getCopyCommand() {
+			StringBuilder contents = new StringBuilder(500);
+			contents.append("COPY ");
+			contents.append(tableName);
+			contents.append(" FROM STDIN WITH DELIMITER '");
+			contents.append(delimiter);
+			contents.append("'");
+			System.out.println(contents);
+			return contents.toString();
+		}
+
+		@Override
+		public void run() {
+			CopyManager copyManager;
+			BaseConnection connection = null;
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			System.out.println(sdf.format(new Date()) + ": begin copy in.");
+			try {
+				connection =  (BaseConnection) psqldb.getConnection();
+				copyManager = new CopyManager(connection);
+				long count = copyManager.copyIn(getCopyCommand(), pipedInputStream);
+				System.out.println("copy in pg: " + count);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
+	}
+
 	public static void main(String[] args) {
 		PostgreSQLProfile profile = new PostgreSQLProfile();
-		profile.setTableName("ext_user_test");
-		profile.setThreadNumber(4);
+		profile.setLoadTable("ext_user_test");
+		profile.setTargetTable("user_test");
+		profile.setThreadNumber(3);
 		PostgreSQLDatabase psqldb = new PostgreSQLDatabase(
 				"vm.mini", "5432", "gptest", "gpadmin", "");
 		PostgreSQLMasking psqlMasking = new PostgreSQLMasking(profile, psqldb);

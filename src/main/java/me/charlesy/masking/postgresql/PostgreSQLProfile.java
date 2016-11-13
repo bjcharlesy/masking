@@ -9,11 +9,19 @@ package me.charlesy.masking.postgresql;
  */
 public class PostgreSQLProfile {
 
+	public static final String LOAD_INSERT = "insert";
+
+	public static final String LOAD_TRUNCATE = "truncate";
+
 	private int threadNumber;
 
-	private String tableName;
+	private String loadTable;
+
+	private String targetTable;
 
 	private String delimiter;
+
+	private String loadAction;
 
 	public int getThreadNumber() {
 		return threadNumber;
@@ -21,6 +29,22 @@ public class PostgreSQLProfile {
 
 	public void setThreadNumber(int threadNumber) {
 		this.threadNumber = threadNumber;
+	}
+
+	public String getLoadTable() {
+		return loadTable;
+	}
+
+	public void setLoadTable(String loadTable) {
+		this.loadTable = loadTable;
+	}
+
+	public String getTargetTable() {
+		return targetTable;
+	}
+
+	public void setTargetTable(String targetTable) {
+		this.targetTable = targetTable;
 	}
 
 	public String getDelimiter() {
@@ -31,16 +55,17 @@ public class PostgreSQLProfile {
 		this.delimiter = delimiter;
 	}
 
-	public String getTableName() {
-		return tableName;
+	public String getLoadAction() {
+		return loadAction;
 	}
 
-	public void setTableName(String tableName) {
-		this.tableName = tableName;
+	public void setLoadAction(String loadAction) {
+		this.loadAction = loadAction;
 	}
 
 	public PostgreSQLProfile() {
 		this.delimiter = "\t";
+		this.loadAction = LOAD_INSERT;
 		this.threadNumber = 1;
 	}
 
