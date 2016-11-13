@@ -4,9 +4,12 @@
 package me.charlesy.masking.postgresql;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,16 +26,29 @@ public class PostgreSQLMaskThread implements Runnable {
 
 	private BufferedReader bufferedReader;
 
+	private BufferedWriter bufferedWriter;
+
 	public void finish() {
 		isFinish.set(true);
 	}
 
-	public PostgreSQLMaskThread(final PipedInputStream pipedInputStream) {
+	public PostgreSQLMaskThread(final PipedInputStream pipedInputStream, PipedOutputStream pipedOutputStream) {
 		bufferedReader = new BufferedReader(new InputStreamReader(pipedInputStream));
+		bufferedWriter = new BufferedWriter(new OutputStreamWriter(pipedOutputStream));
 	}
 
 	public void close() {
 		isClose.set(true);
+	}
+
+	public void closeWriter() {
+		try {
+			bufferedWriter.flush();
+			bufferedWriter.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -49,10 +65,13 @@ public class PostgreSQLMaskThread implements Runnable {
 					continue;
 				}
 				// 模拟处理时间
-				if (true)
+				if (false)
 					Thread.sleep(60 * 1000);
 				System.out.println(line);
+				bufferedWriter.write(line);
+				bufferedWriter.newLine();
 			}
+			bufferedWriter.flush();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

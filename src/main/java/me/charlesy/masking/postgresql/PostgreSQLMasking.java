@@ -10,7 +10,10 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.postgresql.copy.CopyIn;
 import org.postgresql.copy.CopyManager;
+import org.postgresql.copy.PGCopyInputStream;
+import org.postgresql.copy.PGCopyOutputStream;
 import org.postgresql.core.BaseConnection;
 
 /**
@@ -55,8 +58,11 @@ public class PostgreSQLMasking {
 	public void mask() {
 		PipedOutputStream pipedOutputStream = new PipedOutputStream();
 		PipedInputStream pipedInputStream = null;
+		PipedInputStream pipedInputStream2 = new PipedInputStream();
+		PipedOutputStream pipedOutputStream2 = null;
 		try {
 			pipedInputStream = new PipedInputStream(pipedOutputStream);
+			pipedOutputStream2 = new PipedOutputStream(pipedInputStream2);
 		} catch (IOException e) {
 			// Nothing will happen.
 		};
@@ -68,12 +74,19 @@ public class PostgreSQLMasking {
 		copyOutThread.start();
 
 		int thread_number = profile.getThreadNumber();
-		PostgreSQLMaskThread psqlMaskThread = new PostgreSQLMaskThread(pipedInputStream);
+		PostgreSQLMaskThread psqlMaskThread = new PostgreSQLMaskThread(
+				pipedInputStream, pipedOutputStream2);
 		Thread[] maskThreads = new Thread[thread_number];
 		for (int i=0; i<thread_number; i++) {
 			maskThreads[i] = new Thread(psqlMaskThread);
 			maskThreads[i].start();
 		}
+
+		CopyInPg copyInPg = new CopyInPg(pipedInputStream2);
+		copyInPg.setTableName("user_test");
+		copyInPg.setDelimiter(profile.getDelimiter());
+		Thread copyInThread = new Thread(copyInPg);
+		copyInThread.start();
 
 		try {
 			copyOutThread.join();
@@ -81,15 +94,64 @@ public class PostgreSQLMasking {
 			for (Thread t : maskThreads) {
 				t.join();
 			}
+			psqlMaskThread.closeWriter();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		startCopyInGp();
 	}
 
-	private void startCopyInGp() {
-		
+	private class CopyInPg implements Runnable {
+
+		private final PipedInputStream pipedInputStream;
+
+		private String tableName;
+	
+		private String delimiter;
+	
+		public void setTableName(String tableName) {
+			this.tableName = tableName;
+		}
+	
+		public void setDelimiter(String delimiter) {
+			this.delimiter = delimiter;
+		}
+
+		public CopyInPg(PipedInputStream pipedInputStream) {
+			this.pipedInputStream = pipedInputStream;
+		}
+	
+		private String getCopyCommand() {
+			StringBuilder contents = new StringBuilder(500);
+			contents.append( "COPY " );
+			contents.append(tableName);
+			contents.append(" FROM STDIN WITH DELIMITER '");
+			contents.append(delimiter);
+			contents.append("'");
+			System.out.println(contents);
+			return contents.toString();
+		}
+
+		@Override
+		public void run() {
+			CopyManager copyManager;
+			BaseConnection connection = null;
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+			System.out.println(sdf.format(new Date()) + ": begin copy in.");
+			try {
+				connection =  (BaseConnection) psqldb.getConnection();
+				copyManager = new CopyManager(connection);
+				long count = copyManager.copyIn(getCopyCommand(), pipedInputStream);
+				System.out.println("copy in pg: " + count);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
 	}
 
 	private class CopyOutPg implements Runnable {
@@ -117,8 +179,7 @@ public class PostgreSQLMasking {
 			contents.append( "COPY " );
 			contents.append("(SELECT * FROM ");
 			contents.append(tableName);
-			contents.append(") ");
-			contents.append("TO STDOUT WITH DELIMITER '");
+			contents.append(") TO STDOUT WITH DELIMITER '");
 			contents.append(delimiter);
 			contents.append("'");
 			return contents.toString();
@@ -129,7 +190,7 @@ public class PostgreSQLMasking {
 			CopyManager copyManager;
 			BaseConnection connection = null;
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
-			System.out.println(sdf.format(new Date()) + ": begin copy.");
+			System.out.println(sdf.format(new Date()) + ": begin copy out.");
 			try {
 				connection =  (BaseConnection) psqldb.getConnection();
 				copyManager = new CopyManager(connection);
